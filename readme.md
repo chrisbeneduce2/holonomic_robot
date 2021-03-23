@@ -1,116 +1,62 @@
 
 [![N|Solid](https://www.ekumenlabs.com/images/logo.png)](https://www.ekumenlabs.com/)
-# Technical challenge 🚀
-## _USING ROS FOR HOLONOMIC ROBOT_ 
+# Technical briefing about "robot.cpp" 📋
 
+### About the Nodes / Topics
+In the following image, it is possible to see the main topics and nodes of the solution running under node **/master** (ROS) and the **core** (**roscore**) 
 
- ## Context 
-> A client is producing holonomic mobile robots, using a proprietary framework to send them to
-target destinations in a 2D map that represents a floor plan. Their code grew unevenly since
-their first demo, and there are raising concerns about its maintainability. Therefore, they
-want to explore whether [ROS](http://www.ros.org/) is a good option to do the high level interface to operate the
-robot, and get feedback from it.
-
- ## Task
-> To show the client the possibilities that ROS offers, create a ROS node in C++ that makes
-[turtlesim](http://wiki.ros.org/turtlesim) move to a goal ([x, y] point and orientation angle). Goals will be published into a
-topic with the standard message format of [2D poses](http://docs.ros.org/en/api/geometry_msgs/html/msg/Pose2D.html) . Periodic feedback of turtle’s pose must
-be provided using the same message type as the goals. In addition, the motion of the turtle
-may be paused, resumed or reset by using a [service](http://wiki.ros.org/Services) .
-Once the basic functionality described above is ready, create an [RQT Python UI](http://wiki.ros.org/rqt) to read a
-[JSON](https://es.wikipedia.org/wiki/JSON) file with a list of points that the robot must follow. This UI shall provide the option of
-pausing, resuming and resetting the turtle’s motion too.
-
-## Deliverable
->The code must be delivered in the provided Github repository, with clear instructions
-on how to build and execute the application.
-[ROS Kinetic](http://wiki.ros.org/kinetic) with Ubuntu 16.04 or [ROS Melodic](http://wiki.ros.org/melodic) with Ubuntu 18.04 shall be used.
----
-## Abstract 📋
-### Why the client would use ROS?
-ROS, which means Robot Operating System, is a set of software libraries and tools to help you build robot applications. The point of ROS is to create a robotics standard, bellow some key points:
-
-- The same base code and knowledge can be applied to many different kinds of robots: robotic arms, drones, mobile bases, Once you’ve learned about how communication is done between all the nodes of the program, you can setup new parts of an application very easily. In the future, if you need to switch to a totally different robotics projects, you won’t be lost. You’ll be able to reuse what you know and some parts that you’ve built, so you’ll never really start from scratch again and reuse pre-existing code.
-- There are many ROS packages for almost any robotic application.
-- Despite ROS has mainly targeted C++ and Python, several libraries also allow to use of other languages and to communicate modules in different languages, is language "agnostic".
-- ROS can work with multiple ROS masters. It means that you can have many independent robots, each with its own ROS system, and all robots can communicate with each other.
-- ROS is very light, the core base of ROS doesn’t take much space and resources. You can quickly install the core packages and get started in a few minutes. You can also use ROS on embedded computers, such as Raspberry Pi 3 boards. 
-- You can find many robotics products – such as grippers, controller boards, … – that already have a ROS package. So, in addition to the physical tool, the software that goes with it is directly compatible with your ROS system.
-- ROS is open source
+[![N|Solid](https://live.staticflickr.com/65535/50997579005_1411232887_z.jpg)](https://flic.kr/p/2kGtVvx)
+- The main node **/Robot** advertise on **/master** whom returns **vel_pub** to be able to publish the linear and angular velocity to turtle's **/cmd_vel** using a **twist message** [^1].
+[^1]: 
+    File: geometry_msgs/Twist.msg
+    Raw Message Definition
+    This expresses velocity in free space broken into its linear and angular parts.
+    
+        Vector3  linear
+        Vector3  angular
 
 
 
+- Then it subscribes to the topic **/directions** using **messages_sub** in order to obtain from him coordinates from the **PY UI** or the testing node **/dirs**, using the callback function **dirCallback**, this function will be pushing the coordinates (expressed in a **Pose2d message** [^2]) into a queue.
+ 
+[^2]:
 
----
-## Starting ⚙️  
+    File: geometry_msgs/Pose2D.msg
+    Raw Message Definition
+    This expresses a position and orientation on a 2D manifold.
 
-Before repository installation it is needed to setup ROS and an environment in order to work properly, depending your Ubuntu distribution:
+           float64 x
+           float64 y
+           float64 theta
+- **pose_sub** is a subscription to turtles topic **/pose** in order to obtain from him the current coordinates of the turtle using the callback function **poseCallback**, this function updates the current coordinates (expressed in a **Pose message** [^3]) send it to the **/feedback** node and to the "core" **toGoal** function.
+[^3]:
+    File: geometry_msgs/Pose.msg
+    Raw Message Definition
+    A representation of pose in free space, composed of position and orientation. 
 
-- [ROS](http://wiki.ros.org/ROS/Tutorials/InstallingandConfiguringROSEnvironment) - Installing and configuring ROS enviroment
+           Point position
+           Quaternion orientation
+ - **feedback_pub** is used by **posCallback** function to publish to current coordinates into the topic **/feedback** .
 
-After following the guidelines described in the link you will have [RosCore](http://wiki.ros.org/roscore) and a [CatKin](http://wiki.ros.org/catkin/conceptual_overview) Workspace ready to use.
+- **service** is a the published service of the node **/Robot**, which have the entry point **manual_commands**, each time the entry point is called the function **process** takes cares of the command (stop/resume/reset) an calls the entry point of turtle's service **teleportabsolute** using **client** in order to update the current coordinates depending the value of **order**.
 
-Then you will be ready to install the repository from GitHub, open a terminal change to the desired working directory to clone the files and run
+- **toGoal** is a key method becuase in order for this to work, we’ll need to turn the [x, y] cartesian coordinate to its polar form. We can’t send the distance to turtles’s topic **/cmd_vel**, you have to send a velocity, linear and angular velocities using a **twist message** [^4].
+In order to get to a certain point, we must set the velocity to a value proportional to the distance between our current position and the goal.
+This is that I choose to have implemented, a [proportional controller](https://en.wikipedia.org/wiki/PID_controller), setting the velocity proportional to a constant Kv and the distance to go. (The values of Kv and Kh were somewhat random in this sample). 
 
-```sh
-cd thisRepo
-git clone https://github.com/YOUR-USERNAME/YOUR-REPOSITORY
-```
-where "YOUR-USERNAME/YOUR-REPOSITORY" is the provided link of the repository
+[^4]:
+    File: geometry_msgs/Twist.msg
+    Raw Message Definition
+    This expresses velocity in free space broken into its linear and angular parts.
 
----
-## STEPS TO START UP THE ENVIROMENT 🔧
-==(multiple terminals will be needed)==
+          Vector3  linear
+          Vector3  angular
 
-### 1-Starting Roscore
-```sh
-cd thisRepo
-source ./devel/setup.bash
-roscore
-```
-### 2-Running Tutrlesim
+- Finally the principal C++ thread **main** do the rest, it checks the queue, it is not empty (data from **/directions**) pop them, calls to main positioning using function (uses **order** received from **manual_commands** | queued coordinates managed by **/directions** or **posecallback** it makes all the math and trigo calculations calling **toGoal** and set **/cmd_vel** then enter enter in a loop, pumping callbacks.  
+ 
+    The following image shows this graphically.
 
-```sh
-cd thisRepo
-source ./devel/setup.bash
-rosrun turtlesim turtlesim_node
-```
-### 3-Compilation
-```sh
-cd thisRepo
-source ./devel/setup.bash
-catkin_make
-```
-sometimes it is highly recommendable to force a complete compilation using
-```sh
-catkin_make --force-cmake
-```
-
-### 4-Running C++ "Robot" Node 
-```sh
-cd thisRepo
-source ./devel/setup.bash
-rosrun holonomic_robot Robot
-```
-### 5-Running Python UI Plugin 
-```sh
-cd thisRepo`
-source ./devel/setup.bash
-rqt --standalone rqt_mypkg --force-discover
-```
-### 6-Sample data points found in:
-
-```sh
-cat thisRepo/src/rqt_mypkg/src/rqt_mypkg/JSON_files/
-```
-
-### 7-Sample "Dirs" Node used to enter manual coordinates :
-```sh
-cd thisRepo
-source ./devel/setup.bash
-rosrun holonomic_robot dirs
-```
-
+[![N|Solid](https://live.staticflickr.com/65535/50997579050_0a8bf3ef7e_z.jpg)](https://flic.kr/p/2kGtVwj)
 ---
 ---
 
@@ -140,4 +86,6 @@ Puedes encontrar mucho más de cómo utilizar este proyecto en nuestra [Wiki](ht
 
 
 ---
+
+
 ⌨️ by [chrisbeneduce](https://github.com/chrisbeneduce) 😊
